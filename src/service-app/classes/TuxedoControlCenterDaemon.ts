@@ -498,6 +498,7 @@ export class TuxedoControlCenterDaemon extends SingleProcess {
 
         const dmi = new DMIController('/sys/class/dmi/id');
         const productSKU = dmi.productSKU.readValueNT();
+        const productName = dmi.productName.readValueNT();
         const boardName = dmi.boardName.readValueNT();
         const modInfo = new ModuleInfo();
         TuxedoIOAPI.getModuleInfo(modInfo);
@@ -538,6 +539,14 @@ export class TuxedoControlCenterDaemon extends SingleProcess {
         const uwidMatch = uwidDeviceMap.get(parseInt(modInfo.model));
         if (uwidMatch !== undefined) {
             return uwidMatch;
+        }
+
+        const productNameMap = new Map<string, TUXEDODevice>();
+        productNameMap.set('GM7PX9N', TUXEDODevice.STELLARIS1XI05);
+
+        const nameMatch = productNameMap.get(productName);
+        if (nameMatch !== undefined) {
+            return nameMatch;
         }
 
         return undefined;
