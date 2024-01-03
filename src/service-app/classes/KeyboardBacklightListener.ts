@@ -29,6 +29,7 @@ export class KeyboardBacklightListener {
     protected ledsRGBZones: Array<string> = ["/sys/devices/platform/tuxedo_keyboard/leds/rgb:kbd_backlight",
                                              "/sys/devices/platform/tuxedo_keyboard/leds/rgb:kbd_backlight_1",
                                              "/sys/devices/platform/tuxedo_keyboard/leds/rgb:kbd_backlight_2"];
+    protected ledsRGBLightbar: string = undefined;
     protected keyboardBacklightCapabilities: KeyboardBacklightCapabilitiesInterface = {} as KeyboardBacklightCapabilitiesInterface;
     protected sysDBusUPowerProps: dbus.ClientInterface = {} as dbus.ClientInterface;
     protected sysDBusUPowerKbdBacklightInterface: dbus.ClientInterface = {} as dbus.ClientInterface;
@@ -242,6 +243,17 @@ export class KeyboardBacklightListener {
         }
 
         iteKeyboardDevices =
+            getSymbolicLinks("/sys/bus/hid/drivers/ite_8291_lb")
+                .filter(name => fileOK("/sys/bus/hid/drivers/ite_8291_lb/" + name + "/leds"));
+
+        let path = "/sys/bus/hid/drivers/ite_8291_lb/" + iteKeyboardDevices[0] + "/leds"
+        if (fileOK(path)) {
+            this.ledsRGBLightbar = getDirectories(path)
+                .filter(name => name.includes("rgb:lightbar"))
+                .map(name => path + "/" + name)[0];
+        }
+
+        iteKeyboardDevices =
             getSymbolicLinks("/sys/bus/platform/drivers/tuxedo_nb04_kbd_backlight")
                 .filter(name => fileOK("/sys/bus/platform/drivers/tuxedo_nb04_kbd_backlight/" + name + "/leds"));
         for (const iteKeyboardDevice of iteKeyboardDevices) {
@@ -293,6 +305,20 @@ export class KeyboardBacklightListener {
                 this.setBufferInput(this.ledsRGBZones[0], false)
             }
         }
+
+        if (this.ledsRGBLightbar !== undefined && keyboardBacklightStatesNew.length == this.ledsRGBZones.length) {
+                if (await fileOKAsync(this.ledsRGBLightbar + "/brightness")) {
+                    await fs.promises.appendFile(this.ledsRGBLightbar + "/brightness",
+                        (keyboardBacklightStatesNew[0].brightness * 2).toString());
+                }
+
+                if (await fileOKAsync(this.ledsRGBLightbar + "/multi_intensity")) {
+                    await fs.promises.appendFile(this.ledsRGBLightbar + "/multi_intensity",
+                        keyboardBacklightStatesNew[0].red.toString() + " " +
+                        keyboardBacklightStatesNew[0].green.toString() + " " +
+                        keyboardBacklightStatesNew[0].blue.toString());
+                }
+            }
 
         if (updateSettings) {
             this.tccd.settings.keyboardBacklightStates = keyboardBacklightStatesNew;
